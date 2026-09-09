@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de Integral</title>
+<style>
+  :root{
+    --bg:#0e1016; --card:#171a23; --card2:#1e222e; --line:#2a2f3d;
+    --txt:#e7e9ee; --muted:#9aa3b5; --accent:#7c5cff; --accent2:#38bdf8;
+    --ok:#34d399; --warn:#fbbf24; --err:#f87171;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f4f5f9; --card:#ffffff; --card2:#f0f2f7; --line:#dfe3ec;
+      --txt:#161a23; --muted:#5d6579; --accent:#6039ff; --accent2:#0284c7;
+      --ok:#0f9d67; --warn:#b45309; --err:#dc2626;
+    }
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}   /* vence o display:grid da linha de limites */
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font:15px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:900px; margin:0 auto; padding:28px 18px 60px}
+  header h1{
+    margin:0 0 6px; font-size:26px; letter-spacing:-.02em; display:flex; align-items:center; gap:10px;
+  }
+  header h1 .sym{
+    font-family:Georgia,"Times New Roman",serif; font-size:38px; line-height:1;
+    background:linear-gradient(160deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  header p{margin:0 0 22px; color:var(--muted); font-size:14px}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px; margin-bottom:16px;
+  }
+  .modes{display:flex; gap:6px; background:var(--card2); padding:4px; border-radius:10px; margin-bottom:16px}
+  .modes button{
+    flex:1; border:0; background:transparent; color:var(--muted); font:inherit; font-weight:600;
+    padding:9px 10px; border-radius:8px; cursor:pointer; transition:.15s;
+  }
+  .modes button[aria-selected="true"]{background:var(--accent); color:#fff}
+  label{display:block; font-size:12px; font-weight:700; letter-spacing:.06em;
+        text-transform:uppercase; color:var(--muted); margin-bottom:6px}
+  input[type=text]{
+    width:100%; background:var(--card2); border:1px solid var(--line); color:var(--txt);
+    border-radius:10px; padding:12px 14px; font:16px/1.4 "Cascadia Code",Consolas,"SF Mono",Menlo,monospace;
+    outline:none; transition:.15s;
+  }
+  input[type=text]:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(124,92,255,.18)}
+  .field{margin-bottom:14px}
+  .limits{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .chips{display:flex; flex-wrap:wrap; gap:7px; margin:4px 0 16px}
+  .chips button{
+    border:1px solid var(--line); background:var(--card2); color:var(--muted);
+    border-radius:20px; padding:5px 12px; cursor:pointer;
+    font:13px/1 "Cascadia Code",Consolas,monospace; transition:.15s;
+  }
+  .chips button:hover{color:var(--txt); border-color:var(--accent)}
+  .actions{display:flex; gap:10px}
+  .actions button{
+    border:0; border-radius:10px; padding:12px 22px; font:inherit; font-weight:700; cursor:pointer;
+    background:linear-gradient(160deg,var(--accent),#5b3fe0); color:#fff; transition:.15s;
+  }
+  .actions button:hover{filter:brightness(1.1)}
+  .actions button.ghost{background:transparent; border:1px solid var(--line); color:var(--muted)}
+  .msg{border-radius:10px; padding:11px 14px; margin-top:14px; font-size:14px}
+  .msg.error{background:rgba(248,113,113,.12); border:1px solid rgba(248,113,113,.35); color:var(--err)}
+  .msg.warn{background:rgba(251,191,36,.12); border:1px solid rgba(251,191,36,.35); color:var(--warn)}
+  .expr{
+    font-family:Georgia,"Times New Roman",serif; font-size:19px; color:var(--muted);
+    display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-bottom:10px;
+  }
+  .expr .big{font-size:34px; line-height:1; color:var(--accent2)}
+  .expr .lim{display:inline-flex; flex-direction:column; font-size:11px; line-height:1.15; margin-right:2px}
+  .value{
+    font:700 30px/1.25 "Cascadia Code",Consolas,monospace; word-break:break-all;
+    letter-spacing:-.01em; margin:2px 0 12px;
+  }
+  .tags{display:flex; flex-wrap:wrap; gap:8px}
+  .tag{
+    font-size:12px; padding:4px 10px; border-radius:20px;
+    background:var(--card2); border:1px solid var(--line); color:var(--muted);
+  }
+  .tag.ok{color:var(--ok); border-color:rgba(52,211,153,.4)}
+  .tag.warn{color:var(--warn); border-color:rgba(251,191,36,.4)}
+  .sub{
+    margin-top:16px; padding-top:14px; border-top:1px dashed var(--line);
+  }
+  .sub h3{margin:0 0 8px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+  .anti{
+    font:600 18px/1.5 "Cascadia Code",Consolas,monospace; color:var(--txt); word-break:break-word;
+  }
+  canvas{width:100%; height:330px; display:block; border-radius:10px; background:var(--card2)}
+  details{margin-top:14px}
+  summary{cursor:pointer; color:var(--muted); font-size:13px}
+  .help{font-size:13px; color:var(--muted); line-height:1.75}
+  .help code{
+    background:var(--card2); border:1px solid var(--line); border-radius:5px;
+    padding:1px 6px; font-family:"Cascadia Code",Consolas,monospace; color:var(--txt);
+  }
+  @media (max-width:560px){
+    .value{font-size:23px}
+    .actions{flex-direction:column}
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1><span class="sym">&int;</span> Calculadora de Integral</h1>
+    <p>Integrais definidas por quadratura adaptativa de Gauss&ndash;Kronrod e antiderivadas simb&oacute;licas.</p>
+  </header>
+
+  <section class="card">
+    <div class="modes" role="tablist">
+      <button id="modeDef" role="tab" aria-selected="true">Integral definida</button>
+      <button id="modeIndef" role="tab" aria-selected="false">Integral indefinida</button>
+    </div>
+
+    <div class="field">
+      <label for="fx">Fun&ccedil;&atilde;o f(x)</label>
+      <input type="text" id="fx" value="x^2" spellcheck="false" autocomplete="off"
+             placeholder="ex.: x^2 + 3*sin(x)">
+    </div>
+
+    <div class="limits field" id="limitsRow">
+      <div>
+        <label for="la">Limite inferior (a)</label>
+        <input type="text" id="la" value="0" spellcheck="false" autocomplete="off" placeholder="0">
+      </div>
+      <div>
+        <label for="lb">Limite superior (b)</label>
+        <input type="text" id="lb" value="1" spellcheck="false" autocomplete="off" placeholder="1">
+      </div>
+    </div>
+
+    <div class="chips" id="chips"></div>
+
+    <div class="actions">
+      <button id="calc">Calcular</button>
+      <button id="clear" class="ghost">Limpar</button>
+    </div>
+
+    <div class="msg error" id="err" hidden></div>
+  </section>
+
+  <section class="card" id="result" hidden></section>
+
+  <section class="card">
+    <canvas id="plot"></canvas>
+    <div class="tags" id="plotLegend" style="margin-top:10px"></div>
+  </section>
+
+  <section class="card help">
+    <strong style="color:var(--txt)">Sintaxe aceita</strong><br>
+    Operadores <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>^</code> e multiplica&ccedil;&atilde;o impl&iacute;cita (<code>2x</code>, <code>3sin(x)</code>).<br>
+    Fun&ccedil;&otilde;es: <code>sin</code> <code>cos</code> <code>tan</code> <code>cot</code> <code>sec</code> <code>csc</code>
+    <code>asin</code> <code>acos</code> <code>atan</code> <code>sinh</code> <code>cosh</code> <code>tanh</code>
+    <code>ln</code> <code>log</code> <code>exp</code> <code>sqrt</code> <code>cbrt</code> <code>abs</code>.<br>
+    Constantes: <code>pi</code>, <code>e</code>. Limites infinitos: <code>inf</code> e <code>-inf</code>.
+  </section>
+</main>
+<script>
+/* =========================================================================
+   Calculadora de Integral — núcleo matemático
+   ---------------------------------------------------------------------
+   1) Tokenizador + parser recursivo -> AST
+   2) Avaliação numérica, derivação e simplificação simbólica
+   3) Integração simbólica (regras diretas, substituição, por partes)
+   4) Integração numérica adaptativa (Gauss-Kronrod 15 pontos)
+   ========================================================================= */
+(function(global){
+'use strict';
+
+/* ---------------------------- utilidades ---------------------------- */
+
+function ParseError(msg){ this.name='ParseError'; this.message=msg; }
+ParseError.prototype = Object.create(Error.prototype);
+
+/* potência que aceita raiz de índice ímpar de base negativa: (-8)^(1/3) = -2 */
+function powr(b, e){
+  if (b >= 0 || Number.isInteger(e)) return Math.pow(b, e);
+  const r = ratApprox(e, 64);
+  if (r && r[1] % 2 === 1) return (r[0] % 2 === 0 ? 1 : -1) * Math.pow(-b, e);
+  return NaN;
+}
+
+/* aproximação racional por frações contínuas: 0.75 -> [3,4] */
+function ratApprox(x, maxDen, tol){
+  maxDen = maxDen || 5000; tol = tol || 1e-11;
+  if (!isFinite(x)) return null;
+  const sign = x < 0 ? -1 : 1; x = Math.abs(x);
+  let h0 = 0, h1 = 1, k0 = 1, k1 = 0, v = x;
+  for (let i = 0; i < 40; i++){
+    const a = Math.floor(v);
+    const h2 = a * h1 + h0, k2 = a * k1 + k0;
+    h0 = h1; h1 = h2; k0 = k1; k1 = k2;
+    if (k1 > maxDen || k1 <= 0) return null;
+    if (Math.abs(x - h1 / k1) <= tol * Math.max(1, x)) return [sign * h1, k1];
+    const f = v - a;
+    if (f < 1e-14) return null;
+    v = 1 / f;
+  }
+  return null;
+}
+
+function fmtNum(v){
+  if (Number.isNaN(v)) return 'indefinido';
+  if (v === Infinity) return '+∞';
+  if (v === -Infinity) return '-∞';
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  if (a >= 1e15 || a < 1e-9) return v.toExponential(9).replace(/\.?0+e/, 'e');
+  const s = Number(v.toPrecision(12));
+  return String(s);
+}
+
+/* texto de uma constante: prefere fração exata (1/3) ao decimal */
+function fmtConst(v){
+  if (Number.isInteger(v)) return String(v);
+  const r = ratApprox(v, 400, 1e-12);
+  if (r && Math.abs(r[1]) !== 1) return r[0] + '/' + r[1];
+  return fmtNum(v);
+}
+
+/* ------------------------- funções conhecidas ------------------------- */
+/* f: avaliação numérica | d: derivada simbólica em relação ao argumento  */
+
+const FUNCS = {
+  sin:  { f: Math.sin,  d: u => fn('cos', u) },
+  cos:  { f: Math.cos,  d: u => neg(fn('sin', u)) },
+  tan:  { f: Math.tan,  d: u => div(N(1), pw(fn('cos', u), N(2))) },
+  cot:  { f: x => 1 / Math.tan(x), d: u => neg(div(N(1), pw(fn('sin', u), N(2)))) },
+  sec:  { f: x => 1 / Math.cos(x), d: u => mul(fn('sec', u), fn('tan', u)) },
+  csc:  { f: x => 1 / Math.sin(x), d: u => neg(mul(fn('csc', u), fn('cot', u))) },
+  asin: { f: Math.asin, d: u => div(N(1), fn('sqrt', sub(N(1), pw(u, N(2))))) },
+  acos: { f: Math.acos, d: u => neg(div(N(1), fn('sqrt', sub(N(1), pw(u, N(2)))))) },
+  atan: { f: Math.atan, d: u => div(N(1), add(N(1), pw(u, N(2)))) },
+  sinh: { f: Math.sinh, d: u => fn('cosh', u) },
+  cosh: { f: Math.cosh, d: u => fn('sinh', u) },
+  tanh: { f: Math.tanh, d: u => div(N(1), pw(fn('cosh', u), N(2))) },
+  ln:   { f: Math.log,  d: u => div(N(1), u) },
+  log:  { f: Math.log10, d: u => div(N(1), mul(u, N(Math.LN10))) },
+  log10:{ f: Math.log10, d: u => div(N(1), mul(u, N(Math.LN10))) },
+  log2: { f: Math.log2,  d: u => div(N(1), mul(u, N(Math.LN2))) },
+  exp:  { f: Math.exp,  d: u => fn('exp', u) },
+  sqrt: { f: Math.sqrt, d: u => div(N(1), mul(N(2), fn('sqrt', u))) },
+  cbrt: { f: Math.cbrt, d: u => div(N(1), mul(N(3), pw(fn('cbrt', u), N(2)))) },
+  abs:  { f: Math.abs,  d: u => div(u, fn('abs', u)) }
+};
+
+const CONSTS = { pi: Math.PI, e: Math.E, tau: 2 * Math.PI };
+
+/* ------------------------------ tokenizer ----------------------------- */
+
+function normalize(src){
+  return String(src)
+    .replace(/π/g, 'pi').replace(/√/g, 'sqrt').replace(/∞/g, 'inf')
+    .replace(/[−–—]/g, '-').replace(/[·×]/g, '*').replace(/÷/g, '/')
+    .replace(/\*\*/g, '^')
+    .replace(/,/g, '.')      /* vírgula decimal (pt-BR) */
+    .replace(/\[/g, '(').replace(/\]/g, ')')
+    .replace(/\{/g, '(').replace(/\}/g, ')');
+}
+
+function tokenize(src){
+  const s = normalize(src), out = [];
+  let i = 0;
+  while (i < s.length){
+    const c = s[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (/[0-9.]/.test(c)){
+      let j = i;
+      while (j < s.length && /[0-9.]/.test(s[j])) j++;
+      if (s[j] === 'e' || s[j] === 'E'){            /* notação científica: 1.5e-3 */
+        let k = j + 1;
+        if (s[k] === '+' || s[k] === '-') k++;
+        if (/[0-9]/.test(s[k] || '')){ while (k < s.length && /[0-9]/.test(s[k])) k++; j = k; }
+      }
+      const txt = s.slice(i, j), v = parseFloat(txt);
+      if (!isFinite(v) || !/^[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?$|^[0-9]+\.$/.test(txt))
+        throw new ParseError('Número inválido: "' + txt + '".');
+      out.push({ t: 'num', v: v }); i = j; continue;
+    }
+    if (/[a-zA-Z_]/.test(c)){
+      let j = i;
+      while (j < s.length && /[a-zA-Z_0-9]/.test(s[j])) j++;
+      out.push({ t: 'id', v: s.slice(i, j).toLowerCase() }); i = j; continue;
+    }
+    if ('+-*/^'.indexOf(c) >= 0){ out.push({ t: 'op', v: c }); i++; continue; }
+    if (c === '(' || c === ')'){ out.push({ t: c }); i++; continue; }
+    throw new ParseError('Caractere inesperado: "' + c + '".');
+  }
+  return out;
+}
+
+/* -------------------------------- parser ------------------------------
+   expr  := termo (('+'|'-') termo)*
+   termo := unário (('*'|'/'|implícito) unário)*
+   unário:= ('+'|'-') unário | potência
+   pot   := átomo ('^' unário)?           (associativa à direita)
+   átomo := número | constante | x | func(...) | '(' expr ')'
+   ---------------------------------------------------------------------- */
+
+function parse(src){
+  if (!String(src).trim()) throw new ParseError('Digite uma função.');
+  const tk = tokenize(src);
+  let p = 0;
+  const peek = () => tk[p], next = () => tk[p++];
+
+  function parseExpr(){
+    let n = parseTerm();
+    while (peek() && peek().t === 'op' && (peek().v === '+' || peek().v === '-')){
+      const op = next().v;
+      n = { t: op, a: n, b: parseTerm() };
+    }
+    return n;
+  }
+  function parseTerm(){
+    let n = parseUnary();
+    for (;;){
+      const q = peek();
+      if (q && q.t === 'op' && (q.v === '*' || q.v === '/')){
+        next(); n = { t: q.v, a: n, b: parseUnary() }; continue;
+      }
+      if (q && (q.t === 'num' || q.t === 'id' || q.t === '(')){   /* implícito: 2x, 3(x+1) */
+        n = { t: '*', a: n, b: parseUnary() }; continue;
+      }
+      break;
+    }
+    return n;
+  }
+  function parseUnary(){
+    const q = peek();
+    if (q && q.t === 'op' && (q.v === '-' || q.v === '+')){
+      next();
+      const a = parseUnary();
+      return q.v === '-' ? { t: 'neg', a: a } : a;
+    }
+    return parsePow();
+  }
+  function parsePow(){
+    const base = parseAtom();
+    const q = peek();
+    if (q && q.t === 'op' && q.v === '^'){ next(); return { t: '^', a: base, b: parseUnary() }; }
+    return base;
+  }
+  function parseAtom(){
+    const q = next();
+    if (!q) throw new ParseError('Expressão incompleta.');
+    if (q.t === 'num') return { t: 'num', v: q.v };
+    if (q.t === '('){
+      const e = parseExpr(), c = next();
+      if (!c || c.t !== ')') throw new ParseError('Falta um ")".');
+      return e;
+    }
+    if (q.t === 'id'){
+      const name = q.v;
+      if (FUNCS[name]){
+        const c = peek();
+        let arg;
+        if (c && c.t === '('){
+          next(); arg = parseExpr();
+          const cc = next();
+          if (!cc || cc.t !== ')') throw new ParseError('Falta um ")" em ' + name + '(...).');
+        } else {
+          arg = parsePow();                         /* permite "sin x" */
+        }
+        return { t: 'fn', name: name, a: arg };
+      }
+      if (CONSTS[name] !== undefined) return { t: 'const', name: name, v: CONSTS[name] };
+      if (name === 'x') return { t: 'var' };
+      throw new ParseError('Símbolo desconhecido: "' + name + '".');
+    }
+    throw new ParseError('Token inesperado na expressão.');
+  }
+
+  const n = parseExpr();
+  if (p < tk.length) throw new ParseError('Não entendi o final da expressão.');
+  return n;
+}
+
+/* --------------------------- construtores AST -------------------------- */
+
+const V = { t: 'var' };
+const N = v => ({ t: 'num', v: v });
+const add = (a, b) => ({ t: '+', a: a, b: b });
+const sub = (a, b) => ({ t: '-', a: a, b: b });
+const mul = (a, b) => ({ t: '*', a: a, b: b });
+const div = (a, b) => ({ t: '/', a: a, b: b });
+const pw  = (a, b) => ({ t: '^', a: a, b: b });
+const neg = a => ({ t: 'neg', a: a });
+const fn  = (name, a) => ({ t: 'fn', name: name, a: a });
+
+/* ------------------------------ avaliação ------------------------------ */
+
+function ev(n, x){
+  switch (n.t){
+    case 'num': case 'const': return n.v;
+    case 'var': return x;
+    case '+': return ev(n.a, x) + ev(n.b, x);
+    case '-': return ev(n.a, x) - ev(n.b, x);
+    case '*': return ev(n.a, x) * ev(n.b, x);
+    case '/': return ev(n.a, x) / ev(n.b, x);
+    case '^': return powr(ev(n.a, x), ev(n.b, x));
+    case 'neg': return -ev(n.a, x);
+    case 'fn': return FUNCS[n.name].f(ev(n.a, x));
+  }
+  return NaN;
+}
+const toFn = n => (x => ev(n, x));
+
+function dependsOnX(n){
+  switch (n.t){
+    case 'var': return true;
+    case 'num': case 'const': return false;
+    case 'neg': return dependsOnX(n.a);
+    case 'fn': return dependsOnX(n.a);
+    default: return dependsOnX(n.a) || dependsOnX(n.b);
+  }
+}
+
+/* derivada numérica central, usada nas verificações */
+function ndiff(f, x){
+  const h = Math.max(1e-6, Math.abs(x) * 1e-6);
+  return (f(x + h) - f(x - h)) / (2 * h);
+}
+
+/* ---------------------------- simplificação ---------------------------- */
+
+const isNum = (n, v) => n.t === 'num' && Math.abs(n.v - v) < 1e-15;
+
+function mkNeg(a){
+  if (a.t === 'num') return N(-a.v);
+  if (a.t === 'neg') return a.a;
+  return neg(a);
+}
+function mkAdd(a, b){
+  if (isNum(a, 0)) return b;
+  if (isNum(b, 0)) return a;
+  if (a.t === 'num' && b.t === 'num') return N(a.v + b.v);
+  if (b.t === 'neg') return mkSub(a, b.a);
+  if (a.t === 'neg') return mkSub(b, a.a);
+  return add(a, b);
+}
+function mkSub(a, b){
+  if (isNum(b, 0)) return a;
+  if (isNum(a, 0)) return mkNeg(b);
+  if (a.t === 'num' && b.t === 'num') return N(a.v - b.v);
+  if (b.t === 'neg') return add(a, b.a);
+  return sub(a, b);
+}
+function mkMul(a, b){
+  if (isNum(a, 0) || isNum(b, 0)) return N(0);
+  if (isNum(a, 1)) return b;
+  if (isNum(b, 1)) return a;
+  if (a.t === 'num' && b.t === 'num') return N(a.v * b.v);
+  if (isNum(a, -1)) return mkNeg(b);
+  if (isNum(b, -1)) return mkNeg(a);
+  if (b.t === 'num' && a.t !== 'num') { const t = a; a = b; b = t; }   /* constante à esquerda */
+  if (a.t === 'num' && b.t === '*' && b.a.t === 'num') return mkMul(N(a.v * b.a.v), b.b);
+  if (a.t === 'num' && b.t === '/' && b.a.t === 'num') return mkDiv(N(a.v * b.a.v), b.b);
+  if (a.t === 'num' && b.t === '/' && b.b.t === 'num') return mkMul(N(a.v / b.b.v), b.a);
+  if (dependsOnX(a) && dependsOnX(b)){          /* x^-1 · x^2 -> x */
+    const pa = asPow(a), pb = asPow(b);
+    if (pa[1].t === 'num' && pb[1].t === 'num' && key(pa[0]) === key(pb[0]))
+      return mkPow(pa[0], N(pa[1].v + pb[1].v));
+  }
+  if (a.t === 'neg') return mkNeg(mkMul(a.a, b));
+  if (b.t === 'neg') return mkNeg(mkMul(a, b.a));
+  return mul(a, b);
+}
+function mkDiv(a, b){
+  if (isNum(b, 1)) return a;
+  if (isNum(a, 0)) return N(0);
+  if (isNum(b, -1)) return mkNeg(a);
+  if (a.t === 'num' && b.t === 'num' && b.v !== 0) return N(a.v / b.v);
+  if (a.t === 'neg') return mkNeg(mkDiv(a.a, b));
+  if (a.t === '*' && a.a.t === 'num' && b.t === 'num') return mkMul(N(a.a.v / b.v), a.b);
+  if (a.t === '/' && a.b.t === 'num' && b.t === 'num') return mkDiv(a.a, N(a.b.v * b.v));
+  return div(a, b);
+}
+function mkPow(a, b){
+  if (b.t === 'num'){
+    if (b.v === 0) return N(1);
+    if (b.v === 1) return a;
+  }
+  if (a.t === 'num' && b.t === 'num'){
+    const v = powr(a.v, b.v);
+    if (isFinite(v)) return N(v);
+  }
+  /* (u^p)^q = u^(pq): só quando p e q são inteiros (evita (x²)^½ = x, que é falso)
+     ou quando |p| < 1 — aí a base já precisa ser não-negativa para p ser real */
+  if (a.t === '^' && a.b.t === 'num' && b.t === 'num' &&
+      ((Number.isInteger(a.b.v) && Number.isInteger(b.v)) || Math.abs(a.b.v) < 1))
+    return mkPow(a.a, N(a.b.v * b.v));
+  return pw(a, b);
+}
+
+/* vê qualquer nó como base^expoente */
+function asPow(n){
+  return (n.t === '^' && !dependsOnX(n.b)) ? [n.a, n.b] : [n, N(1)];
+}
+
+function simplify(n){
+  if (!n) return n;
+  switch (n.t){
+    case 'num': case 'var': case 'const': return n;
+    case 'neg': return mkNeg(simplify(n.a));
+    case '+': return mkAdd(simplify(n.a), simplify(n.b));
+    case '-': return mkSub(simplify(n.a), simplify(n.b));
+    case '*': return mkMul(simplify(n.a), simplify(n.b));
+    case '/': return mkDiv(simplify(n.a), simplify(n.b));
+    case '^': return mkPow(simplify(n.a), simplify(n.b));
+    case 'fn': {
+      const a = simplify(n.a);
+      if (n.name === 'sqrt' && a.t === '^' && a.b.t === 'num' && a.b.v === 2) return fn('abs', a.a);
+      return fn(n.name, a);
+    }
+  }
+  return n;
+}
+
+/* troca c·f por f/q quando c = 1/q, deixando "x^3/3" em vez de "0.333·x^3" */
+function beautify(n){
+  if (!n || typeof n !== 'object') return n;
+  if (n.t === 'fn') return fn(n.name, beautify(n.a));
+  if (n.t === 'neg') return mkNeg(beautify(n.a));
+  if (n.a === undefined) return n;
+  const a = beautify(n.a), b = n.b === undefined ? undefined : beautify(n.b);
+  if (n.t === '^' && b && b.t === 'num'){
+    return b.v < 0 ? div(N(1), powDisp(a, -b.v)) : powDisp(a, b.v);
+  }
+  if (n.t === '/' && b && b.t === 'num' && !Number.isInteger(b.v)){
+    const r = ratApprox(b.v, 400, 1e-12);
+    if (r) return div(r[1] === 1 ? a : mul(N(r[1]), a), N(r[0]));
+  }
+  if (n.t === '*' && a.t === 'num' && !Number.isInteger(a.v)){
+    const r = ratApprox(a.v, 400, 1e-12);
+    if (r) return r[0] === 1 ? div(b, N(r[1]))
+         : r[0] === -1 ? mkNeg(div(b, N(r[1])))
+         : div(mul(N(r[0]), b), N(r[1]));
+  }
+  return b === undefined ? { t: n.t, a: a } : { t: n.t, a: a, b: b };
+}
+
+function powDisp(a, p){
+  if (p === 0.5) return fn('sqrt', a);
+  if (p === 1) return a;
+  return pw(a, N(p));
+}
+
+/* -------------------------------- texto -------------------------------- */
+
+const PREC = { '+': 1, '-': 1, '*': 2, '/': 2, 'neg': 3, '^': 4 };
+
+function toStr(n, parent){
+  parent = parent || 0;
+  let s, p = 5;
+  switch (n.t){
+    case 'num':   s = fmtConst(n.v); p = s.indexOf('/') >= 0 ? 2 : (n.v < 0 ? 3 : 5); break;
+    case 'const': s = n.name === 'pi' ? 'π' : n.name; break;
+    case 'var':   s = 'x'; break;
+    case 'fn':    s = n.name + '(' + toStr(n.a, 0) + ')'; break;
+    case 'neg':   p = 3; s = '-' + toStr(n.a, 2); break;
+    case '^':     p = 4; s = toStr(n.a, 5) + '^' + toStr(n.b, 4); break;
+    case '*':     p = 2; s = toStr(n.a, 2) + '·' + toStr(n.b, 2.5); break;
+    case '/':     p = 2; s = toStr(n.a, 2) + '/' + toStr(n.b, 2.5); break;
+    case '+':     p = 1; s = toStr(n.a, 1) + ' + ' + toStr(n.b, 1.5); break;
+    case '-':     p = 1; s = toStr(n.a, 1) + ' - ' + toStr(n.b, 1.5); break;
+    default:      s = '?';
+  }
+  return p < parent ? '(' + s + ')' : s;
+}
+
+const key = n => toStr(simplify(n), 0);   /* chave estrutural p/ comparar subárvores */
+
+/* --------------------- ferramentas de reconhecimento ------------------- */
+
+const SAMPLES = [0.3137, -0.7211, 1.4413, -1.9137, 2.7311, 0.9137, -0.4413, 3.1137];
+
+/* n é a·x + b ? devolve {a,b} numéricos */
+function linearOf(n){
+  const f = toFn(n), b = f(0), a = f(1) - f(0);
+  if (!isFinite(a) || !isFinite(b)) return null;
+  let checked = 0;
+  for (const x of SAMPLES){
+    const y = f(x);
+    if (!isFinite(y)) continue;
+    if (Math.abs(y - (a * x + b)) > 1e-8 * (1 + Math.abs(y))) return null;
+    checked++;
+  }
+  return checked >= 4 ? { a: a, b: b } : null;
+}
+
+/* n é A·x² + B·x + C ? devolve {A,B,C} */
+function quadOf(n){
+  const f = toFn(n), c = f(0), p1 = f(1), m1 = f(-1);
+  if (![c, p1, m1].every(isFinite)) return null;
+  const A = (p1 + m1) / 2 - c, B = (p1 - m1) / 2;
+  if (Math.abs(A) < 1e-14) return null;
+  let checked = 0;
+  for (const x of SAMPLES){
+    const y = f(x);
+    if (!isFinite(y)) continue;
+    if (Math.abs(y - (A * x * x + B * x + c)) > 1e-8 * (1 + Math.abs(y))) return null;
+    checked++;
+  }
+  return checked >= 4 ? { A: A, B: B, C: c } : null;
+}
+
+/* g(x)/h(x) é constante? devolve a constante */
+function constRatio(g, h){
+  let k = null, checked = 0;
+  for (const x of SAMPLES){
+    const gv = g(x), hv = h(x);
+    if (!isFinite(gv) || !isFinite(hv) || Math.abs(hv) < 1e-9) continue;
+    const r = gv / hv;
+    if (!isFinite(r)) continue;
+    if (k === null) k = r;
+    else if (Math.abs(r - k) > 1e-7 * (1 + Math.abs(k))) return null;
+    checked++;
+  }
+  return checked >= 4 ? k : null;
+}
+
+/* polinômio em x com expoentes inteiros >= 0 */
+function isPoly(n){
+  switch (n.t){
+    case 'num': case 'const': return true;
+    case 'var': return true;
+    case 'neg': return isPoly(n.a);
+    case '+': case '-': case '*': return isPoly(n.a) && isPoly(n.b);
+    case '/': return isPoly(n.a) && !dependsOnX(n.b);
+    case '^': return isPoly(n.a) && n.b.t === 'num' && Number.isInteger(n.b.v) && n.b.v >= 0;
+    default: return false;
+  }
+}
+
+/* derivada simbólica */
+function deriv(n){
+  switch (n.t){
+    case 'num': case 'const': return N(0);
+    case 'var': return N(1);
+    case 'neg': return mkNeg(deriv(n.a));
+    case '+': return mkAdd(deriv(n.a), deriv(n.b));
+    case '-': return mkSub(deriv(n.a), deriv(n.b));
+    case '*': return mkAdd(mkMul(deriv(n.a), n.b), mkMul(n.a, deriv(n.b)));
+    case '/': return mkDiv(mkSub(mkMul(deriv(n.a), n.b), mkMul(n.a, deriv(n.b))), mkPow(n.b, N(2)));
+    case '^': {
+      if (!dependsOnX(n.b))                     /* u^c */
+        return mkMul(mkMul(n.b, mkPow(n.a, mkSub(n.b, N(1)))), deriv(n.a));
+      if (!dependsOnX(n.a))                     /* c^u */
+        return mkMul(mkMul(n, fn('ln', n.a)), deriv(n.b));
+      return mkMul(n, mkAdd(mkMul(deriv(n.b), fn('ln', n.a)),
+                            mkDiv(mkMul(n.b, deriv(n.a)), n.a)));
+    }
+    case 'fn': return mkMul(FUNCS[n.name].d(n.a), deriv(n.a));
+  }
+  return N(NaN);
+}
+
+/* --------------------- produtos: achatar e reconstruir ----------------- */
+
+function flatten(n, out, sign){
+  out = out || []; sign = sign === undefined ? 1 : sign;
+  if (n.t === '*'){
+    const r1 = flatten(n.a, out, sign);
+    return flatten(n.b, out, r1);
+  }
+  if (n.t === '/'){
+    const r1 = flatten(n.a, out, sign);
+    out.push(mkPow(n.b, N(-1)));
+    return r1;
+  }
+  if (n.t === 'neg') return flatten(n.a, out, -sign);
+  out.push(n);
+  return sign;
+}
+function product(list){
+  let r = N(1);
+  for (const f of list) r = mkMul(r, f);
+  return r;
+}
+
+/* substitui todas as ocorrências de `what` por `by` */
+function replaceNode(n, whatKey, by){
+  if (key(n) === whatKey) return by;
+  switch (n.t){
+    case 'num': case 'var': case 'const': return n;
+    case 'neg': return neg(replaceNode(n.a, whatKey, by));
+    case 'fn': return fn(n.name, replaceNode(n.a, whatKey, by));
+    default: return { t: n.t, a: replaceNode(n.a, whatKey, by), b: replaceNode(n.b, whatKey, by) };
+  }
+}
+
+/* ======================== INTEGRAÇÃO SIMBÓLICA ========================= */
+
+/* sqrt(u) -> u^(1/2) e cbrt(u) -> u^(1/3): deixa as regras de potência agirem.
+   O beautify() faz o caminho de volta na hora de exibir. */
+function normalizeRadicals(n){
+  if (!n || typeof n !== 'object') return n;
+  if (n.t === 'fn'){
+    const a = normalizeRadicals(n.a);
+    if (n.name === 'sqrt') return mkPow(a, N(0.5));
+    if (n.name === 'cbrt') return mkPow(a, N(1 / 3));
+    return fn(n.name, a);
+  }
+  if (n.a === undefined) return n;
+  if (n.b === undefined) return { t: n.t, a: normalizeRadicals(n.a) };
+  return { t: n.t, a: normalizeRadicals(n.a), b: normalizeRadicals(n.b) };
+}
+
+function integrate(node, depth){
+  depth = depth === undefined ? 6 : depth;
+  if (depth < 0) return null;
+  const n = simplify(normalizeRadicals(node));
+
+  /* constante -> c·x */
+  if (!dependsOnX(n)) return mkMul(n, V);
+
+  switch (n.t){
+    case 'var': return mkDiv(mkPow(V, N(2)), N(2));
+    case 'neg': { const r = integrate(n.a, depth); return r && mkNeg(r); }
+    case '+': {
+      const A = integrate(n.a, depth), B = integrate(n.b, depth);
+      return (A && B) ? mkAdd(A, B) : null;
+    }
+    case '-': {
+      const A = integrate(n.a, depth), B = integrate(n.b, depth);
+      return (A && B) ? mkSub(A, B) : null;
+    }
+    case '/':
+      if (!dependsOnX(n.b)){                    /* f/c */
+        const r = integrate(n.a, depth);
+        if (r) return mkDiv(r, n.b);
+      }
+      break;
+  }
+
+  /* retira fatores constantes: 3·sin(2x) -> 3·∫sin(2x) */
+  if (n.t === '*' || n.t === '/'){
+    const facs = [], sign = flatten(n, facs);
+    const consts = [], rest = [];
+    for (const f of facs) (dependsOnX(f) ? rest : consts).push(f);
+    if (consts.length && rest.length){
+      const k = mkMul(N(sign), product(consts));
+      const r = integrate(product(rest), depth);
+      if (r) return mkMul(k, r);
+    } else if (sign < 0){
+      const r = integrate(product(facs), depth);
+      if (r) return mkNeg(r);
+    }
+  }
+
+  return direct(n, depth) || bySubstitution(n, depth) || byParts(n, depth);
+}
+
+/* ---------- regras diretas (tabela de integrais) ---------- */
+
+function direct(n, depth){
+  /* potências */
+  if (n.t === '^'){
+    const e = n.b, base = n.a;
+    if (!dependsOnX(e)){
+      const p = ev(e, 0);
+      const L = linearOf(base);
+      if (L && Math.abs(L.a) > 1e-12){
+        if (Math.abs(p + 1) < 1e-14) return mkDiv(fn('ln', fn('abs', base)), N(L.a));
+        return mkDiv(mkPow(base, N(p + 1)), N(L.a * (p + 1)));
+      }
+      const Q = quadOf(base);
+      if (Q && Math.abs(p + 1) < 1e-14) return quadInv(base, Q);
+      if (Q && Math.abs(p + 0.5) < 1e-14) return quadInvSqrt(base, Q);
+    }
+    if (!dependsOnX(base)){                    /* c^(ax+b) */
+      const c = ev(base, 0), L = linearOf(e);
+      if (L && Math.abs(L.a) > 1e-12 && c > 0)
+        return mkDiv(n, N(L.a * Math.log(c)));
+    }
+  }
+
+  /* divisões */
+  if (n.t === '/'){
+    const num_ = n.a, den = n.b;
+    if (!dependsOnX(num_)){
+      const L = linearOf(den);
+      if (L && Math.abs(L.a) > 1e-12)
+        return mkMul(mkDiv(num_, N(L.a)), fn('ln', fn('abs', den)));
+      const Q = quadOf(den);
+      if (Q){ const r = quadInv(den, Q); if (r) return mkMul(num_, r); }
+      if (den.t === '^' && !dependsOnX(den.b)){          /* 1/u^p = u^-p */
+        const r = direct(mkPow(den.a, N(-ev(den.b, 0))), depth);
+        if (r) return mkMul(num_, r);
+      }
+    }
+    /* numerador = k·den' + m  ->  k·ln|den| + m·∫(1/den) */
+    const dden = simplify(deriv(den));
+    const fit = fitTwo(toFn(num_), toFn(dden));
+    if (fit && Math.abs(fit.k) > 1e-14){
+      let res = Math.abs(fit.k) > 1e-14 ? mkMul(N(fit.k), fn('ln', fn('abs', den))) : N(0);
+      if (Math.abs(fit.m) > 1e-14){
+        const inner = integrate(mkDiv(N(1), den), depth - 1);
+        if (!inner) return null;
+        res = mkAdd(res, mkMul(N(fit.m), inner));
+      }
+      if (!isNum(res, 0)) return res;
+    }
+  }
+
+  /* funções de argumento linear: f(ax+b) */
+  if (n.t === 'fn'){
+    const u = n.a, L = linearOf(u);
+    if (L && Math.abs(L.a) > 1e-12){
+      const a = N(L.a), F = ANTI_FN[n.name];
+      if (F) return mkDiv(F(u), a);
+    }
+    if (n.name === 'sqrt'){                     /* sqrt(u) = u^(1/2) */
+      const r = direct(mkPow(u, N(0.5)), depth);
+      if (r) return r;
+    }
+  }
+
+  return null;
+}
+
+/* antiderivadas elementares: ∫f(u)du (a divisão por a fica com quem chama) */
+const ANTI_FN = {
+  sin:  u => mkNeg(fn('cos', u)),
+  cos:  u => fn('sin', u),
+  tan:  u => mkNeg(fn('ln', fn('abs', fn('cos', u)))),
+  cot:  u => fn('ln', fn('abs', fn('sin', u))),
+  sec:  u => fn('ln', fn('abs', mkAdd(fn('sec', u), fn('tan', u)))),
+  csc:  u => mkNeg(fn('ln', fn('abs', mkAdd(fn('csc', u), fn('cot', u))))),
+  exp:  u => fn('exp', u),
+  sinh: u => fn('cosh', u),
+  cosh: u => fn('sinh', u),
+  tanh: u => fn('ln', fn('cosh', u)),
+  ln:   u => mkSub(mkMul(u, fn('ln', u)), u),
+  log:  u => mkDiv(mkSub(mkMul(u, fn('ln', u)), u), N(Math.LN10)),
+  log10:u => mkDiv(mkSub(mkMul(u, fn('ln', u)), u), N(Math.LN10)),
+  log2: u => mkDiv(mkSub(mkMul(u, fn('ln', u)), u), N(Math.LN2)),
+  sqrt: u => mkDiv(mkMul(N(2), mkPow(u, N(1.5))), N(3)),
+  cbrt: u => mkDiv(mkMul(N(3), mkPow(u, N(4 / 3))), N(4)),
+  asin: u => mkAdd(mkMul(u, fn('asin', u)), fn('sqrt', mkSub(N(1), mkPow(u, N(2))))),
+  acos: u => mkSub(mkMul(u, fn('acos', u)), fn('sqrt', mkSub(N(1), mkPow(u, N(2))))),
+  atan: u => mkSub(mkMul(u, fn('atan', u)), mkDiv(fn('ln', mkAdd(N(1), mkPow(u, N(2)))), N(2)))
+};
+
+/* ∫ dx/(Ax²+Bx+C) */
+function quadInv(q, Q){
+  const A = Q.A, B = Q.B, C = Q.C, D = B * B - 4 * A * C;
+  const lin = mkAdd(mkMul(N(2 * A), V), N(B));
+  if (D < -1e-12){
+    const s = Math.sqrt(-D);
+    return mkMul(N(2 / s), fn('atan', mkDiv(lin, N(s))));
+  }
+  if (D > 1e-12){
+    const s = Math.sqrt(D);
+    return mkMul(N(1 / s), fn('ln', fn('abs', mkDiv(mkSub(lin, N(s)), mkAdd(lin, N(s))))));
+  }
+  return mkDiv(N(-2), lin);
+}
+
+/* ∫ dx/√(Ax²+Bx+C) */
+function quadInvSqrt(q, Q){
+  const A = Q.A, B = Q.B, C = Q.C, D = B * B - 4 * A * C;
+  const lin = mkAdd(mkMul(N(2 * A), V), N(B));
+  if (A > 0){
+    const s = Math.sqrt(A);
+    return mkMul(N(1 / s), fn('ln', fn('abs', mkAdd(lin, mkMul(N(2 * s), fn('sqrt', q))))));
+  }
+  if (A < 0 && D > 0)
+    return mkMul(N(1 / Math.sqrt(-A)), fn('asin', mkDiv(mkNeg(lin), N(Math.sqrt(D)))));
+  return null;
+}
+
+/* ajuste f(x) = k·g(x) + m por mínimos quadrados + verificação */
+function fitTwo(f, g){
+  let s11 = 0, s12 = 0, s22 = 0, b1 = 0, b2 = 0, n = 0;
+  const pts = [];
+  for (const x of SAMPLES){
+    const fv = f(x), gv = g(x);
+    if (!isFinite(fv) || !isFinite(gv)) continue;
+    pts.push([x, fv, gv]);
+    s11 += gv * gv; s12 += gv; s22 += 1;
+    b1 += fv * gv;  b2 += fv;  n++;
+  }
+  if (n < 4) return null;
+  const det = s11 * s22 - s12 * s12;
+  if (Math.abs(det) < 1e-14) return null;
+  const k = (b1 * s22 - b2 * s12) / det;
+  const m = (s11 * b2 - s12 * b1) / det;
+  for (const [, fv, gv] of pts)
+    if (Math.abs(fv - (k * gv + m)) > 1e-7 * (1 + Math.abs(fv))) return null;
+  return { k: k, m: m };
+}
+
+/* ---------- substituição u = g(x) ---------- */
+
+function bySubstitution(n, depth){
+  const facs = [], sign = flatten(n, facs);
+  if (!facs.length) return null;
+
+  for (let i = 0; i < facs.length; i++){
+    const F = facs[i];
+    if (!dependsOnX(F)) continue;
+    const others = facs.filter((_, j) => j !== i);
+
+    /* candidatos (u, ∫outer(t)dt) para este fator */
+    const cands = [];
+    if (F.t === 'fn' && ANTI_FN[F.name] && dependsOnX(F.a))
+      cands.push([F.a, ANTI_FN[F.name](V)]);
+    if (F.t === '^'){
+      if (!dependsOnX(F.b) && dependsOnX(F.a)){
+        const p = ev(F.b, 0);
+        cands.push([F.a, Math.abs(p + 1) < 1e-14
+          ? fn('ln', fn('abs', V))
+          : mkDiv(mkPow(V, N(p + 1)), N(p + 1))]);
+      }
+      if (!dependsOnX(F.a) && dependsOnX(F.b)){
+        const c = ev(F.a, 0);
+        if (c > 0) cands.push([F.b, mkDiv(mkPow(F.a, V), N(Math.log(c)))]);
+      }
+    }
+    cands.push([F, mkDiv(mkPow(V, N(2)), N(2))]);      /* u = o próprio fator */
+
+    for (const [u, anti] of cands){
+      if (!dependsOnX(u) || u.t === 'var') continue;     /* argumento linear já foi tratado */
+      const du = simplify(deriv(u));
+      if (isNum(du, 0)) continue;
+      const k = constRatio(toFn(product(others)), toFn(du));
+      if (k === null || !isFinite(k)) continue;
+      const back = replaceNode(anti, 'x', u);            /* volta t -> u(x) */
+      const res = simplify(mkMul(N(sign * k), back));
+      if (verify(n, res, 6)) return res;
+    }
+  }
+  return null;
+}
+
+/* ---------- integração por partes ---------- */
+
+const BY_PARTS_U = { ln: 1, log: 1, log10: 1, log2: 1, asin: 1, acos: 1, atan: 1 };
+
+function byParts(n, depth){
+  if (depth <= 0) return null;
+  const facs = [], sign = flatten(n, facs);
+  if (facs.length < 2) return null;
+
+  const splits = [];
+  /* 1ª tentativa (LIATE): u = log/arco, dv = o resto */
+  const logs = facs.filter(f => f.t === 'fn' && BY_PARTS_U[f.name]);
+  if (logs.length === 1 && facs.length > 1)
+    splits.push([logs[0], product(facs.filter(f => f !== logs[0]))]);
+  /* 2ª tentativa: u = parte polinomial, dv = o resto */
+  const poly = facs.filter(f => isPoly(f) && dependsOnX(f));
+  const rest = facs.filter(f => !(isPoly(f) && dependsOnX(f)));
+  if (poly.length && rest.length) splits.push([product(poly), product(rest)]);
+
+  for (const [u, dv] of splits){
+    const G = integrate(dv, depth - 1);
+    if (!G) continue;
+    const inner = integrate(simplify(mkMul(deriv(u), G)), depth - 1);
+    if (!inner) continue;
+    const res = simplify(mkMul(N(sign), mkSub(mkMul(u, G), inner)));
+    if (verify(n, res, 6)) return res;
+  }
+  return null;
+}
+
+/* --------- verificação numérica: F'(x) deve reproduzir f(x) --------- */
+
+function verify(fNode, FNode, minPts, lo, hi){
+  minPts = minPts || 6;
+  const f = toFn(fNode), F = toFn(FNode);
+  let ok = 0, bad = 0;
+  const pts = [];
+  if (lo !== undefined && isFinite(lo) && isFinite(hi))
+    for (let i = 1; i <= 11; i++) pts.push(lo + (hi - lo) * i / 12);
+  for (const p of [0.4137, 1.2731, -0.6113, 2.1379, -1.7211, 0.8317, 3.3137, -2.4113, 1.6611, 0.2137])
+    pts.push(p);
+  for (const x of pts){
+    const fv = f(x);
+    if (!isFinite(fv)) continue;
+    const dv = ndiff(F, x);
+    if (!isFinite(dv)) continue;
+    const tol = 1e-4 * (1 + Math.abs(fv));
+    if (Math.abs(dv - fv) <= tol) ok++; else bad++;
+  }
+  return ok >= Math.min(minPts, 4) && bad === 0;
+}
+
+/* antiderivada com verificação; devolve {node, str} ou null */
+function antiderivative(node, lo, hi){
+  let F;
+  try { F = integrate(simplify(node), 6); }
+  catch (e){ return null; }
+  if (!F) return null;
+  F = simplify(F);
+  if (!verify(node, F, 5, lo, hi)) return null;
+  return { node: F, str: toStr(beautify(F), 0) };
+}
+
+/* ==================== INTEGRAÇÃO NUMÉRICA (GK15) ====================== */
+
+const XGK = [0.991455371120813, 0.949107912342759, 0.864864423359769,
+             0.741531185599394, 0.586087235467691, 0.405845151377397,
+             0.207784955007898, 0.000000000000000];
+const WGK = [0.022935322010529, 0.063092092629979, 0.104790010322250,
+             0.140653259715525, 0.169004726639267, 0.190350578064785,
+             0.204432940075298, 0.209482141084728];
+const WG  = [0.129484966168870, 0.279705391489277, 0.381830050505119,
+             0.417959183673469];
+
+/* uma aplicação da regra de Gauss-Kronrod de 15 pontos em [a,b] */
+function gk15(f, a, b, st){
+  const c = (a + b) / 2, h = (b - a) / 2;
+  let k = 0, g = 0, ok = true;
+  for (let i = 0; i < 7; i++){
+    const d = h * XGK[i];
+    let v1 = f(c - d), v2 = f(c + d);
+    if (!isFinite(v1)){ v1 = 0; ok = false; }
+    if (!isFinite(v2)){ v2 = 0; ok = false; }
+    k += WGK[i] * (v1 + v2);
+    if (i % 2 === 1) g += WG[(i - 1) / 2] * (v1 + v2);
+  }
+  let v0 = f(c);
+  if (!isFinite(v0)){ v0 = 0; ok = false; }
+  k += WGK[7] * v0; g += WG[3] * v0;
+  st.evals += 15;
+  return { val: k * h, err: Math.abs((k - g) * h), ok: ok };
+}
+
+function adaptive(f, a, b, tol, depth, st){
+  const r = gk15(f, a, b, st);
+  if (!r.ok) st.singular = true;
+  const width = Math.abs(b - a);
+  if (depth <= 0 || r.err <= tol || width < 1e-13 * Math.max(1, Math.abs(a)) || st.evals > 220000){
+    st.parts++; st.err += r.err;
+    if (depth <= 0 || st.evals > 220000) st.truncated = true;
+    return r.val;
+  }
+  const m = (a + b) / 2;
+  return adaptive(f, a, m, tol / 2, depth - 1, st) + adaptive(f, m, b, tol / 2, depth - 1, st);
+}
+
+/* integral definida, com suporte a limites infinitos por mudança de variável */
+function integrateNumeric(node, a, b){
+  const f0 = toFn(node);
+  const st = { evals: 0, parts: 0, err: 0, singular: false, truncated: false, transform: null };
+
+  if (a === b) return { value: 0, err: 0, stats: st };
+  let sign = 1;
+  if (a > b){ const t = a; a = b; b = t; sign = -1; }
+
+  let f = f0, lo = a, hi = b;
+  if (!isFinite(a) && !isFinite(b)){
+    /* x = t/(1-t²), t ∈ (-1,1) */
+    st.transform = 'x = t/(1-t²)';
+    f = t => { const d = 1 - t * t; return f0(t / d) * (1 + t * t) / (d * d); };
+    lo = -1; hi = 1;
+  } else if (!isFinite(b)){
+    /* x = a + t/(1-t), t ∈ [0,1) */
+    st.transform = 'x = a + t/(1-t)';
+    f = t => { const d = 1 - t; return f0(a + t / d) / (d * d); };
+    lo = 0; hi = 1;
+  } else if (!isFinite(a)){
+    /* x = b - t/(1-t), t ∈ [0,1) */
+    st.transform = 'x = b - t/(1-t)';
+    f = t => { const d = 1 - t; return f0(b - t / d) / (d * d); };
+    lo = 0; hi = 1;
+  }
+
+  const rough = gk15(f, lo, hi, st);
+  const tol = Math.max(1e-13, 1e-10 * Math.abs(rough.val));
+  const value = adaptive(f, lo, hi, tol, 45, st);
+  return { value: sign * value, err: st.err, stats: st };
+}
+
+/* --------------------------- interface pública ------------------------- */
+
+global.MathCore = {
+  parse: parse, ev: ev, toFn: toFn, toStr: toStr, simplify: simplify, beautify: beautify,
+  deriv: deriv, integrate: integrate, antiderivative: antiderivative,
+  integrateNumeric: integrateNumeric, dependsOnX: dependsOnX,
+  fmtNum: fmtNum, fmtConst: fmtConst, ParseError: ParseError,
+  CONSTS: CONSTS, FUNCS: FUNCS
+};
+
+})(window);
+
+/* =========================================================================
+   Interface: entrada, resultados e gráfico
+   ========================================================================= */
+(function(){
+'use strict';
+const M = window.MathCore;
+
+const el = id => document.getElementById(id);
+const fxIn = el('fx'), laIn = el('la'), lbIn = el('lb');
+const limitsRow = el('limitsRow'), errBox = el('err'), resBox = el('result');
+const bDef = el('modeDef'), bIndef = el('modeIndef');
+const canvas = el('plot'), legend = el('plotLegend');
+
+let mode = 'def';
+let last = null;                       /* último desenho, para redesenhar no resize */
+
+const EXAMPLES = [
+  { f: 'x^2',          a: '0',    b: '1'  },
+  { f: 'sin(x)',       a: '0',    b: 'pi' },
+  { f: '1/x',          a: '1',    b: 'e'  },
+  { f: 'e^(-x^2)',     a: '-inf', b: 'inf'},
+  { f: 'x*ln(x)',      a: '1',    b: '2'  },
+  { f: '1/(1+x^2)',    a: '0',    b: '1'  },
+  { f: 'x*e^x',        a: '0',    b: '1'  },
+  { f: '2x*cos(x^2)',  a: '0',    b: '2'  },
+  { f: '1/sqrt(x)',    a: '0',    b: '4'  },
+  { f: 'sqrt(1-x^2)',  a: '-1',   b: '1'  }
+];
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* --------------------------- entrada / limites ------------------------- */
+
+function parseLimit(txt, nome){
+  const s = String(txt).trim().toLowerCase().replace(/∞/g, 'inf');
+  if (!s) throw new M.ParseError('Informe o limite ' + nome + '.');
+  if (/^\+?\s*inf(inity|inito)?$/.test(s)) return Infinity;
+  if (/^-\s*inf(inity|inito)?$/.test(s)) return -Infinity;
+  const node = M.parse(s);
+  if (M.dependsOnX(node)) throw new M.ParseError('O limite ' + nome + ' não pode depender de x.');
+  const v = M.ev(node, 0);
+  if (!isFinite(v)) throw new M.ParseError('Limite ' + nome + ' inválido.');
+  return v;
+}
+
+function showError(msg){
+  errBox.textContent = msg;
+  errBox.hidden = false;
+  resBox.hidden = true;
+}
+
+/* ------------------------------- cálculo ------------------------------- */
+
+function calcular(){
+  errBox.hidden = true;
+  let node;
+  try { node = M.parse(fxIn.value); }
+  catch (e){ return showError(e.message || 'Não consegui interpretar a função.'); }
+
+  if (mode === 'indef') return calcularIndefinida(node);
+
+  let a, b;
+  try {
+    a = parseLimit(laIn.value, 'inferior');
+    b = parseLimit(lbIn.value, 'superior');
+  } catch (e){ return showError(e.message); }
+
+  let out;
+  try { out = M.integrateNumeric(node, a, b); }
+  catch (e){ return showError('Falha ao integrar numericamente.'); }
+
+  const F = M.antiderivative(node, isFinite(a) ? a : undefined, isFinite(b) ? b : undefined);
+  const st = out.stats;
+  const avisos = [];
+
+  if (!isFinite(out.value)){
+    avisos.push('A integral parece divergir (ou a função não está definida em todo o intervalo).');
+  }
+  if (st.singular) avisos.push('Há pontos onde f(x) não está definida no intervalo — resultado tratado como integral imprópria.');
+  if (st.truncated) avisos.push('A precisão-alvo não foi atingida: o valor pode ter erro maior que o estimado.');
+
+  /* conferência pelo Teorema Fundamental do Cálculo */
+  let ftc = null;
+  if (F && isFinite(a) && isFinite(b) && !st.singular){
+    const Ff = M.toFn(F.node);
+    const v = Ff(b) - Ff(a);
+    if (isFinite(v)) ftc = v;
+  }
+
+  const relErr = Math.abs(out.value) > 1e-12 ? out.err / Math.abs(out.value) : out.err;
+  const tags = [
+    '<span class="tag">erro estimado: ' + (out.err < 1e-14 ? '&lt; 1e-14' : out.err.toExponential(2)) + '</span>',
+    '<span class="tag">' + st.parts + ' subintervalo' + (st.parts === 1 ? '' : 's') + '</span>',
+    '<span class="tag">' + st.evals + ' avaliações de f</span>',
+    '<span class="tag">Gauss&ndash;Kronrod 15 pts (adaptativo)</span>'
+  ];
+  if (st.transform) tags.push('<span class="tag">substituição ' + st.transform + '</span>');
+  if (relErr < 1e-9 && !st.truncated && isFinite(out.value))
+    tags.unshift('<span class="tag ok">✓ convergiu</span>');
+
+  let html =
+    '<div class="expr">' + intSymbol(a, b, laIn.value, lbIn.value) + '<span>' + esc(M.toStr(node, 0)) + '</span><span>dx</span>' +
+    '<span style="margin:0 6px">=</span></div>' +
+    '<div class="value">' + esc(M.fmtNum(out.value)) + '</div>' +
+    '<div class="tags">' + tags.join('') + '</div>';
+
+  if (F){
+    html += '<div class="sub"><h3>Antiderivada (Teorema Fundamental do Cálculo)</h3>' +
+            '<div class="anti">F(x) = ' + esc(F.str) + ' + C</div>';
+    if (ftc !== null){
+      const dif = Math.abs(ftc - out.value);
+      html += '<div class="tags" style="margin-top:10px">' +
+              '<span class="tag">F(b) &minus; F(a) = ' + esc(M.fmtNum(ftc)) + '</span>' +
+              (dif <= 1e-6 * (1 + Math.abs(out.value))
+                ? '<span class="tag ok">✓ confere com o valor numérico</span>'
+                : '<span class="tag warn">divergência de ' + dif.toExponential(2) + ' em relação ao numérico</span>') +
+              '</div>';
+    }
+    html += '</div>';
+  }
+
+  for (const w of avisos) html += '<div class="msg warn">' + esc(w) + '</div>';
+
+  resBox.innerHTML = html;
+  resBox.hidden = false;
+  desenhar(node, a, b, F ? F.node : null);
+}
+
+function calcularIndefinida(node){
+  const F = M.antiderivative(node);
+  let html = '<div class="expr"><span class="big">&int;</span><span>' +
+             esc(M.toStr(node, 0)) + '</span><span>dx</span><span style="margin:0 6px">=</span></div>';
+
+  if (F){
+    html += '<div class="value">' + esc(F.str) + ' + C</div>' +
+            '<div class="tags"><span class="tag ok">✓ verificada: d/dx F(x) = f(x)</span>' +
+            '<span class="tag">C = constante de integração</span></div>' +
+            '<div class="sub"><h3>Derivada de conferência</h3><div class="anti">F&prime;(x) = ' +
+            esc(M.toStr(M.beautify(M.simplify(M.deriv(F.node))), 0)) + '</div></div>';
+  } else {
+    html += '<div class="value" style="font-size:20px;color:var(--muted)">sem forma fechada elementar encontrada</div>' +
+            '<div class="msg warn">Não encontrei uma antiderivada elementar para esta função com as regras ' +
+            'implementadas (tabela, substituição e integração por partes). Use o modo <strong>integral definida</strong> ' +
+            'para obter o valor numérico em um intervalo.</div>';
+  }
+  resBox.innerHTML = html;
+  resBox.hidden = false;
+  desenhar(node, null, null, F ? F.node : null);
+}
+
+/* mostra o limite como foi digitado ("pi" vira π); cai no número se ficar longo */
+function intSymbol(a, b, ta, tb){
+  const s = (v, txt) => {
+    const t = String(txt || '').trim().toLowerCase()
+      .replace(/^\+?inf(inity|inito)?$/, '∞').replace(/^-inf(inity|inito)?$/, '-∞')
+      .replace(/\bpi\b/g, 'π');
+    if (t && t.length <= 8) return t;
+    return v === Infinity ? '∞' : v === -Infinity ? '-∞' : M.fmtNum(v);
+  };
+  return '<span class="big">&int;</span><span class="lim"><span>' + esc(s(b, tb)) +
+         '</span><span>' + esc(s(a, ta)) + '</span></span>';
+}
+
+/* -------------------------------- gráfico ------------------------------ */
+
+function niceStep(range){
+  const raw = range / 8, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
+  return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p;
+}
+
+function desenhar(node, a, b, FNode){
+  last = { node: node, a: a, b: b, F: FNode };
+  const css = getComputedStyle(document.documentElement);
+  const cAccent = css.getPropertyValue('--accent').trim() || '#7c5cff';
+  const cAccent2 = css.getPropertyValue('--accent2').trim() || '#38bdf8';
+  const cLine = css.getPropertyValue('--line').trim() || '#2a2f3d';
+  const cMuted = css.getPropertyValue('--muted').trim() || '#9aa3b5';
+
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  const g = canvas.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  /* janela em x */
+  let lo, hi;
+  if (a !== null && b !== null){
+    const fa = isFinite(a) ? a : (isFinite(b) ? b - 8 : -6);
+    const fb = isFinite(b) ? b : (isFinite(a) ? a + 8 : 6);
+    const w = Math.max(Math.abs(fb - fa), 1e-6);
+    lo = Math.min(fa, fb) - 0.28 * w; hi = Math.max(fa, fb) + 0.28 * w;
+  } else { lo = -6; hi = 6; }
+
+  const f = M.toFn(node);
+  const Ff = FNode ? M.toFn(FNode) : null;
+  const nPts = Math.max(200, Math.round(W));
+  const xs = [], ys = [], zs = [];
+  for (let i = 0; i <= nPts; i++){
+    const x = lo + (hi - lo) * i / nPts;
+    xs.push(x); ys.push(f(x));
+    if (Ff) zs.push(Ff(x));
+  }
+
+  /* janela em y robusta (ignora explosões perto de assíntotas) */
+  const fin = ys.filter(isFinite).map(Math.abs).sort((p, q) => p - q);
+  if (!fin.length){
+    g.fillStyle = cMuted; g.font = '14px system-ui';
+    g.fillText('f(x) não está definida nesta janela.', 16, H / 2);
+    return;
+  }
+  let ymax = fin[Math.floor(fin.length * 0.96)] || 1;
+  if (!isFinite(ymax) || ymax <= 0) ymax = 1;
+  let ylo = -ymax * 1.25, yhi = ymax * 1.25;
+  const realMin = Math.min.apply(null, ys.filter(isFinite));
+  const realMax = Math.max.apply(null, ys.filter(isFinite));
+  if (realMin >= 0) ylo = -0.12 * yhi;
+  if (realMax <= 0) yhi = -0.12 * ylo;
+  if (yhi - ylo < 1e-9){ ylo -= 1; yhi += 1; }
+
+  const pad = { l: 46, r: 12, t: 12, b: 24 };
+  const X = x => pad.l + (x - lo) / (hi - lo) * (W - pad.l - pad.r);
+  const Y = y => H - pad.b - (y - ylo) / (yhi - ylo) * (H - pad.t - pad.b);
+  const clampY = y => Math.max(pad.t - 400, Math.min(H - pad.b + 400, Y(y)));
+
+  /* grade */
+  g.lineWidth = 1; g.font = '11px system-ui'; g.textBaseline = 'middle';
+  const sx = niceStep(hi - lo), sy = niceStep(yhi - ylo);
+  g.strokeStyle = cLine; g.fillStyle = cMuted;
+  g.textAlign = 'center';
+  for (let x = Math.ceil(lo / sx) * sx; x <= hi; x += sx){
+    const px = Math.round(X(x)) + .5;
+    g.beginPath(); g.moveTo(px, pad.t); g.lineTo(px, H - pad.b); g.stroke();
+    if (Math.abs(x) > sx / 1e6) g.fillText(fmtTick(x, sx), px, H - pad.b + 12);
+  }
+  g.textAlign = 'right';
+  for (let y = Math.ceil(ylo / sy) * sy; y <= yhi; y += sy){
+    const py = Math.round(Y(y)) + .5;
+    g.beginPath(); g.moveTo(pad.l, py); g.lineTo(W - pad.r, py); g.stroke();
+    if (Math.abs(y) > sy / 1e6) g.fillText(fmtTick(y, sy), pad.l - 6, py);
+  }
+
+  /* eixos */
+  g.strokeStyle = cMuted; g.globalAlpha = .75; g.lineWidth = 1.2;
+  if (ylo < 0 && yhi > 0){ const py = Math.round(Y(0)) + .5;
+    g.beginPath(); g.moveTo(pad.l, py); g.lineTo(W - pad.r, py); g.stroke(); }
+  if (lo < 0 && hi > 0){ const px = Math.round(X(0)) + .5;
+    g.beginPath(); g.moveTo(px, pad.t); g.lineTo(px, H - pad.b); g.stroke(); }
+  g.globalAlpha = 1;
+
+  g.save();
+  g.beginPath(); g.rect(pad.l, pad.t, W - pad.l - pad.r, H - pad.t - pad.b); g.clip();
+
+  /* área sombreada entre a e b */
+  if (a !== null && b !== null){
+    const sa = Math.max(Math.min(a, b), lo), sb = Math.min(Math.max(a, b), hi);
+    if (sb > sa){
+      g.fillStyle = cAccent; g.globalAlpha = .22;
+      g.beginPath();
+      let started = false;
+      const M0 = 240;
+      for (let i = 0; i <= M0; i++){
+        const x = sa + (sb - sa) * i / M0, y = f(x);
+        if (!isFinite(y)) continue;
+        if (!started){ g.moveTo(X(x), Y(0)); started = true; }
+        g.lineTo(X(x), clampY(y));
+      }
+      if (started){ g.lineTo(X(sb), Y(0)); g.closePath(); g.fill(); }
+      g.globalAlpha = 1;
+    }
+  }
+
+  /* antiderivada (linha secundária) */
+  if (Ff){
+    const zf = zs.filter(isFinite);
+    if (zf.length){
+      g.strokeStyle = cAccent2; g.lineWidth = 1.6; g.globalAlpha = .55;
+      g.setLineDash([5, 4]); g.beginPath();
+      let pen = false;
+      for (let i = 0; i <= nPts; i++){
+        const v = zs[i];
+        if (!isFinite(v) || v < ylo * 6 || v > yhi * 6){ pen = false; continue; }
+        const px = X(xs[i]), py = clampY(v);
+        if (!pen){ g.moveTo(px, py); pen = true; } else g.lineTo(px, py);
+      }
+      g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+    }
+  }
+
+  /* curva de f */
+  g.strokeStyle = cAccent; g.lineWidth = 2.2; g.lineJoin = 'round';
+  g.beginPath();
+  let pen = false, prev = null;
+  for (let i = 0; i <= nPts; i++){
+    const y = ys[i];
+    if (!isFinite(y)){ pen = false; prev = null; continue; }
+    const px = X(xs[i]), py = clampY(y);
+    /* quebra o traço em saltos (assíntotas verticais) */
+    if (pen && prev !== null && Math.abs(y - prev) > (yhi - ylo) * 1.5) pen = false;
+    if (!pen){ g.moveTo(px, py); pen = true; } else g.lineTo(px, py);
+    prev = y;
+  }
+  g.stroke();
+
+  /* linhas verticais nos limites */
+  if (a !== null && b !== null){
+    g.setLineDash([4, 4]); g.lineWidth = 1.4; g.strokeStyle = cAccent; g.globalAlpha = .8;
+    for (const v of [a, b]){
+      if (!isFinite(v) || v < lo || v > hi) continue;
+      const px = Math.round(X(v)) + .5;
+      g.beginPath(); g.moveTo(px, pad.t); g.lineTo(px, H - pad.b); g.stroke();
+    }
+    g.setLineDash([]); g.globalAlpha = 1;
+  }
+  g.restore();
+
+  legend.innerHTML =
+    '<span class="tag" style="color:' + cAccent + '">━ f(x)</span>' +
+    (Ff ? '<span class="tag" style="color:' + cAccent2 + '">╌ F(x) (antiderivada)</span>' : '') +
+    (a !== null && b !== null ? '<span class="tag">área sombreada = valor da integral (com sinal)</span>' : '');
+}
+
+function fmtTick(v, step){
+  const d = Math.max(0, -Math.floor(Math.log10(step)) + (step < 1 ? 0 : 0));
+  const s = v.toFixed(Math.min(6, d));
+  return s.replace(/\.?0+$/, '') || '0';
+}
+
+/* -------------------------------- eventos ------------------------------ */
+
+function setMode(m){
+  mode = m;
+  bDef.setAttribute('aria-selected', String(m === 'def'));
+  bIndef.setAttribute('aria-selected', String(m === 'indef'));
+  limitsRow.hidden = (m === 'indef');
+  calcular();
+}
+
+bDef.addEventListener('click', () => setMode('def'));
+bIndef.addEventListener('click', () => setMode('indef'));
+el('calc').addEventListener('click', calcular);
+el('clear').addEventListener('click', () => {
+  fxIn.value = ''; errBox.hidden = true; resBox.hidden = true;
+  legend.innerHTML = '';
+  const g = canvas.getContext('2d'); g.clearRect(0, 0, canvas.width, canvas.height);
+  last = null; fxIn.focus();
+});
+
+for (const inp of [fxIn, laIn, lbIn])
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') calcular(); });
+
+const chips = el('chips');
+for (const ex of EXAMPLES){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = ex.f;
+  b.addEventListener('click', () => {
+    fxIn.value = ex.f; laIn.value = ex.a; lbIn.value = ex.b;
+    calcular();
+  });
+  chips.appendChild(b);
+}
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  if (!last) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => desenhar(last.node, last.a, last.b, last.F), 120);
+});
+if (window.matchMedia)
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',
+    () => { if (last) desenhar(last.node, last.a, last.b, last.F); });
+
+calcular();
+})();
+</script>
+</body>
+</html>
